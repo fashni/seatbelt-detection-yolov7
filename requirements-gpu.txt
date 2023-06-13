@@ -3,3 +3,4 @@ PySide6
 araviq6
 opencv-python
 superqt
+filesplit
