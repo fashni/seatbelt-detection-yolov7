@@ -124,6 +124,10 @@ class YoloFrameWorker(VideoFrameWorker):
   def enabled(self, state: bool):
     self._enabled = state
 
+  def update_table(self, cars_id, img):
+    self.result_table.update(cars_id, self.frame_id, img.copy())
+    self.result_table.fill_table()
+
   def postprocess(self, img, boxes, scores, class_ids, cars_id=None):
     self.new_frame_time = time.perf_counter()
     if boxes[class_ids==0].size > 0 and cars_id is not None:
@@ -169,33 +173,34 @@ class YoloFrameWorker(VideoFrameWorker):
     cars_id = np.zeros((cars.shape[0], cars.shape[1]+3))
     cars_id[:, :5] = self.tracker.update(cars)
 
-    if windshields.size > 0:
-      windshields_id = -np.ones((windshields.shape[0], windshields.shape[1]+1))
-      windshields_id[:, :-1] = windshields
+    if windshields.size == 0:
+      self.update_table(cars_id, image)
+      return self.postprocess(img, boxes, scores, class_ids, cars_id)
 
-      invalid = []
-      for idx, w in enumerate(windshields_id):
-        car_index = bbox_iou(np.expand_dims(w[:4], 0), cars[:, :4])
-        if car_index.sum()==0:
-          invalid.append(idx)
-          continue
-        w[-1] = cars_id[np.argmax(car_index), 4]
-      windshields_id = np.delete(windshields_id, invalid, 0)
+    windshields_id = -np.ones((windshields.shape[0], windshields.shape[1]+1))
+    windshields_id[:, :-1] = windshields
 
-      # windshields_imgs = []
-      for wbox in windshields_id:
-        box = wbox.astype(int)
-        ws = img[box[1]:box[3], box[0]:box[2], :]
-        ps_res = self.engine.detect(ws, classes=[1, 2], full=True)
-        ps_boxes, ps_scores, ps_class_ids = ps_res
-        draw_detections(ws, *ps_res, class_names=self.engine.class_names, colors=self.colors)
-        # windshields_imgs.append((int(wbox[-1]), ps_res, ws))
-        tmp = cars_id[cars_id[:, 4]==wbox[-1]]
-        tmp[0, 6] = ps_class_ids[ps_class_ids == 2].size
-        tmp[0, 5] = ps_class_ids[ps_class_ids == 1].size
-        cars_id[cars_id[:, 4] == wbox[-1]] = tmp
+    invalid = []
+    for idx, w in enumerate(windshields_id):
+      car_index = bbox_iou(np.expand_dims(w[:4], 0), cars[:, :4])
+      if car_index.sum()==0:
+        invalid.append(idx)
+        continue
+      w[-1] = cars_id[np.argmax(car_index), 4]
+    windshields_id = np.delete(windshields_id, invalid, 0)
 
-    self.result_table.update(cars_id, self.frame_id, image.copy())
-    self.result_table.fill_table()
+    # windshields_imgs = []
+    for wbox in windshields_id:
+      box = wbox.astype(int)
+      ws = img[box[1]:box[3], box[0]:box[2], :]
+      ps_res = self.engine.detect(ws, classes=[1, 2], full=True)
+      ps_boxes, ps_scores, ps_class_ids = ps_res
+      draw_detections(ws, *ps_res, class_names=self.engine.class_names, colors=self.colors)
+      # windshields_imgs.append((int(wbox[-1]), ps_res, ws))
+      tmp = cars_id[cars_id[:, 4]==wbox[-1]]
+      tmp[0, 6] = ps_class_ids[ps_class_ids == 2].size
+      tmp[0, 5] = ps_class_ids[ps_class_ids == 1].size
+      cars_id[cars_id[:, 4] == wbox[-1]] = tmp
 
+    self.update_table(cars_id, image)
     return self.postprocess(img, boxes, scores, class_ids, cars_id)
