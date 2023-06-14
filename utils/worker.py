@@ -9,7 +9,7 @@ from PySide6.QtMultimedia import QVideoFrame
 from araviq6.array2qvideoframe import array2qvideoframe
 
 from utils import (bbox_iou, draw_detections, draw_detections_id, draw_fps,
-                   draw_roi)
+                   draw_roi, hex2rgb)
 from utils.tracker import EuclideanDistTracker
 from utils.yolo import YoloInfer
 
@@ -112,6 +112,7 @@ class YoloFrameWorker(VideoFrameWorker):
     self.frame_id = 0
     self.prev_frame_time = 0
     self.new_frame_time = 0
+    self.colors = [hex2rgb("23aaf2"), hex2rgb("f9394a"), hex2rgb("18b400")]
 
   def set_model(self, model_path: str, conf=0.25, roi=None):
     self.engine.init_model(model_path)
@@ -126,7 +127,7 @@ class YoloFrameWorker(VideoFrameWorker):
   def postprocess(self, img, boxes, scores, class_ids, cars_id=None):
     self.new_frame_time = time.perf_counter()
     if boxes[class_ids==0].size > 0 and cars_id is not None:
-      res_img = draw_detections_id(img, cars_id[:, :5], scores[class_ids==0], class_ids[class_ids==0])
+      res_img = draw_detections_id(img, cars_id[:, :5], scores[class_ids==0], class_ids[class_ids==0], colors=self.colors)
       draw_fps(res_img, 1/(self.new_frame_time-self.prev_frame_time))
     else:
       draw_fps(img, 1/(self.new_frame_time-self.prev_frame_time))
@@ -145,7 +146,7 @@ class YoloFrameWorker(VideoFrameWorker):
       return img
 
     self.engine.get_roi_vertices(img)
-    draw_roi(img, self.engine.verts)
+    draw_roi(img, self.engine.verts, color=hex2rgb("#ffd96a"))
     if self.has_model and not self._enabled:
       self.new_frame_time = time.perf_counter()
       draw_fps(img, 1/(self.new_frame_time-self.prev_frame_time))
@@ -187,7 +188,7 @@ class YoloFrameWorker(VideoFrameWorker):
         ws = img[box[1]:box[3], box[0]:box[2], :]
         ps_res = self.engine.detect(ws, classes=[1, 2], full=True)
         ps_boxes, ps_scores, ps_class_ids = ps_res
-        draw_detections(ws, *ps_res, class_names=self.engine.class_names)
+        draw_detections(ws, *ps_res, class_names=self.engine.class_names, colors=self.colors)
         # windshields_imgs.append((int(wbox[-1]), ps_res, ws))
         tmp = cars_id[cars_id[:, 4]==wbox[-1]]
         tmp[0, 6] = ps_class_ids[ps_class_ids == 2].size

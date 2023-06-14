@@ -147,13 +147,15 @@ if __name__ == "__main__":
   from utils import bbox_iou, cv2_imshow, draw_detections_id
 
   tracker = EuclideanDistTracker()
+  colors = [hex2bgr("23aaf2"), hex2bgr("f9394a"), hex2bgr("18b400")]
   verbose = False
-  img = cv2.imread("test4.png")
+  img = cv2.imread("media/test (1).png")
   img_h, img_w = img.shape[:2]
-  path = "models/seatbelt-v7.onnx"
+  path = "models/seatbelt-tiny.onnx"
   engine = YoloInfer(path, verbose=verbose, conf=0.35)
   # engine.roi = [(0, 1), (0, 1), (0, 1), (0, 1)]
-  engine.roi = [(0.42, 0.52), (0.41, 0.58), (0.37, 0.86), (0.37, 0.86)]
+  # engine.roi = [(0.42, 0.52), (0.41, 0.58), (0.37, 0.86), (0.37, 0.86)]
+  engine.roi = [(0.33, 0.63), (0.17, 0.71), (0.3, 0.86), (0.3, 0.86)] # [top, bottom, left, right]
 
   res = engine.detect(img, classes=[0, 3], full=False)
   boxes, scores, class_ids = res
@@ -205,12 +207,12 @@ if __name__ == "__main__":
   # res = engine(img)
   start = time.perf_counter()
   draw_roi(img, engine.verts, 2, hex2bgr("#ffd96a"))
-  # render = draw_detections_id(img, *res, class_names=engine.class_names)
-  render = draw_detections_id(img, cars_id[:, :5], scores[class_ids==0], class_ids[class_ids==0])
+  #render = draw_detections_id(img, *res)
+  render = draw_detections_id(img, cars_id[:, :5], scores[class_ids==0], class_ids[class_ids==0], colors=colors)
   # render = draw_detections_id(render, windshields_id, scores[class_ids==3], class_ids[class_ids==3])
   if verbose:
     print(f"Rendering time: {(time.perf_counter() - start)*1000:.2f} ms")
-  cv2_imshow(cv2.resize(render, (img_w//3, img_h//3)))
+  cv2_imshow(cv2.resize(render, (img_w//2, img_h//2)))
 
 # h_img, w_img = img.shape[:2]
 # verts = np.vstack((np.hstack([x.value for x in roi_xs])*w_img, np.hstack([y.value for y in roi_ys])*h_img)).T.astype(int)

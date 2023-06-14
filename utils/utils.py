@@ -7,11 +7,11 @@ import numpy as np
 MAX_NCLASS = 100
 
 rng = np.random.default_rng(3)
-colors = rng.uniform(0, 255, size=(MAX_NCLASS+1, 3))
+def_colors = rng.uniform(0, 255, size=(MAX_NCLASS+1, 3))
 
 def draw_roi(frame, verts=None, thickness=None, color=None):
   tl = thickness or round(0.002 * (frame.shape[0] + frame.shape[1]) / 2) + 1
-  color = color or colors[-1]
+  color = color or def_colors[-1]
   cv2.polylines(frame, [np.int32(verts)], True, color, tl, cv2.LINE_AA)
 
 
@@ -21,18 +21,22 @@ def draw_fps(image, fps):
   cv2.putText(image, f"{fps:.2f} fps", (tl, tl*10), 0, tl/3, [255, 255, 255], max(tl - 1, 1), cv2.LINE_AA)
 
 
-def draw_detections(image, boxes, scores, class_ids, class_names=None):
+def draw_detections(image, boxes, scores, class_ids, class_names=None, colors=None):
   det_img = image
   if class_names is None:
     class_names = np.arange(MAX_NCLASS+1)
+  if colors is None:
+    colors = def_colors
   for box, score, class_id in zip(boxes, scores, class_ids):
     color = colors[class_id]
-    plot_one_box(box, det_img, color, f"{class_id}", line_thickness=1)
+    plot_one_box(box, det_img, color, f"{class_id}", line_thickness=3)
   return det_img
 
 
-def draw_detections_id(image, boxes, scores, class_ids):
+def draw_detections_id(image, boxes, scores, class_ids, colors=None):
   det_img = image.copy()
+  if colors is None:
+    colors = def_colors
   for box, score, class_id in zip(boxes, scores, class_ids):
     color = colors[class_id]
     plot_one_box(box[:-1], det_img, color, f"id: {int(box[-1]):d}; {score:.2f}")
