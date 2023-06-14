@@ -61,10 +61,10 @@ class FrameWidget(QWidget):
 
     self.media_controller.setPlayer(self.video_player)
     self.process_button.setCheckable(True)
-    self.process_button.toggled.connect(self.on_process_btn_toggle)
+    self.process_button.toggled.connect(self.on_process_btn_toggled)
     self.camera_button.setCheckable(True)
-    self.camera_button.toggled.connect(self.on_camera_btn_toggle)
-    self.skip_frame_button.toggled.connect(self.on_skip_frame_btn_toggle)
+    self.camera_button.toggled.connect(self.on_camera_btn_toggled)
+    self.skip_frame_button.toggled.connect(self.on_skip_frame_btn_toggled)
 
   def is_stream(self) -> bool:
     if self.mode == 0:
@@ -73,10 +73,10 @@ class FrameWidget(QWidget):
       return self.video_player.playbackState() != QMediaPlayer.PlaybackState.PlayingState
     return False
 
-  def on_skip_frame_btn_toggle(self, state: bool):
+  def on_skip_frame_btn_toggled(self, state: bool):
     self.frame_processor.setSkipIfRunning(state)
 
-  def on_camera_btn_toggle(self, state: bool):
+  def on_camera_btn_toggled(self, state: bool):
     self.camera_button.setText("Stop Camera" if state else "Start Camera")
     if state and not self.camera.isActive():
       self.cam_start = True
@@ -85,8 +85,11 @@ class FrameWidget(QWidget):
       self.cam_start = False
       self.camera.stop()
 
-  def on_process_btn_toggle(self, state: bool):
-    self.worker.enabled(state)
+  def on_coco_toggled(self, state: bool):
+    self.worker.coco = state
+
+  def on_process_btn_toggled(self, state: bool):
+    self.worker.enabled = state
     if self.is_stream() and self.worker.has_model:
       self.frame_processor.processVideoFrame(self.video_sink.videoFrame())
 

@@ -13,7 +13,7 @@ class MainWidget(QWidget):
     self.table = ResultTable()
     self.frame_worker = YoloFrameWorker(conf=0.55, result_table=self.table)
     self.frame_widget = FrameWidget(worker=self.frame_worker)
-    self.left_sidebar = SideBar()
+    self.left_sidebar = SideBar(self)
 
     self.right_sidebar = QWidget()
     self.clear_data_pb = QPushButton("Clear Data")

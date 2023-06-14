@@ -21,7 +21,7 @@ def draw_fps(image, fps):
   cv2.putText(image, f"{fps:.2f} fps", (tl, tl*10), 0, tl/3, [255, 255, 255], max(tl - 1, 1), cv2.LINE_AA)
 
 
-def draw_detections(image, boxes, scores, class_ids, class_names=None, colors=None):
+def draw_detections(image, boxes, scores, class_ids, class_names=None, colors=None, coco=False):
   det_img = image
   if class_names is None:
     class_names = np.arange(MAX_NCLASS+1)
@@ -29,7 +29,13 @@ def draw_detections(image, boxes, scores, class_ids, class_names=None, colors=No
     colors = def_colors
   for box, score, class_id in zip(boxes, scores, class_ids):
     color = colors[class_id]
-    plot_one_box(box, det_img, color, f"{class_id}", line_thickness=3)
+    plot_one_box(
+      x = box,
+      img = det_img,
+      color = color,
+      label = f"{class_names[class_id]}: {score:.2f}" if coco else f"{class_id}",
+      line_thickness = 3
+    )
   return det_img
 
 

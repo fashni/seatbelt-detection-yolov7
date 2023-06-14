@@ -105,6 +105,7 @@ class YoloFrameWorker(VideoFrameWorker):
   def __init__(self, model_path=None, conf=0.25, result_table=None, verbose=False, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self._enabled = False
+    self._coco = False
     self.result_table = result_table
     self.has_model = model_path is not None
     self.engine = YoloInfer(model_path, conf, verbose)
@@ -121,8 +122,21 @@ class YoloFrameWorker(VideoFrameWorker):
       self.engine.roi = roi
     self.has_model = True
 
+  @property
+  def enabled(self):
+    return self._enabled
+
+  @enabled.setter
   def enabled(self, state: bool):
     self._enabled = state
+
+  @property
+  def coco(self):
+    return self._coco
+  
+  @coco.setter
+  def coco(self, state: bool):
+    self._coco = state
 
   def update_table(self, cars_id, img):
     self.result_table.update(cars_id, self.frame_id, img.copy())
@@ -132,6 +146,9 @@ class YoloFrameWorker(VideoFrameWorker):
     self.new_frame_time = time.perf_counter()
     if boxes[class_ids==0].size > 0 and cars_id is not None:
       res_img = draw_detections_id(img, cars_id[:, :5], scores[class_ids==0], class_ids[class_ids==0], colors=self.colors)
+      draw_fps(res_img, 1/(self.new_frame_time-self.prev_frame_time))
+    elif self._coco:
+      res_img = draw_detections(img.copy(), boxes, scores, class_ids, self.engine.class_names, coco=True)
       draw_fps(res_img, 1/(self.new_frame_time-self.prev_frame_time))
     else:
       draw_fps(img, 1/(self.new_frame_time-self.prev_frame_time))
@@ -157,11 +174,12 @@ class YoloFrameWorker(VideoFrameWorker):
       self.prev_frame_time = self.new_frame_time
       return img
 
-    res = self.engine.detect(image, classes=[0, 3], full=False)
+    classes = None if self._coco else [0, 3]
+    res = self.engine.detect(image, classes=classes, full=False)
     boxes, scores, class_ids = res
     # cars_id = self.tracker.update(boxes[class_ids==0])
-  
-    if boxes.size == 0:
+
+    if boxes.size == 0 or self._coco:
       return self.postprocess(img, boxes, scores, class_ids)
 
     cars = boxes[class_ids==0]

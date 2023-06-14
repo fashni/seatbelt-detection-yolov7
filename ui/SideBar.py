@@ -1,15 +1,16 @@
 from pathlib import Path
+
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtMultimedia import QMediaDevices
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QFileDialog, QFormLayout,
-                               QGroupBox, QPushButton, QSlider, QDoubleSpinBox, 
-                               QComboBox, QSpinBox, QHBoxLayout, QLineEdit, QStackedWidget,
-                               )
-
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox,
+                               QFileDialog, QFormLayout, QGroupBox,
+                               QHBoxLayout, QLineEdit, QPushButton, QSlider,
+                               QSpinBox, QStackedWidget, QVBoxLayout, QWidget)
 from superqt import QDoubleRangeSlider
 
 from ui import DoubleSpinBox
+
 
 class SideBar(QWidget):
   def __init__(self, *args, **kwargs):
@@ -38,6 +39,7 @@ class SideBar(QWidget):
     self.model_cb = QComboBox()
     self.model_cb.addItems([model.name for model in self.model_dir.iterdir() if model.suffix.casefold() == ".onnx"])
     self.trkr_reset_btn = QPushButton("Reset Tracker")
+    self.coco_chk = QCheckBox("COCO")
 
     self.conf_slider.setRange(0, 100)
     self.conf_slider.setValue(55)
@@ -58,9 +60,12 @@ class SideBar(QWidget):
     trkr_layout = QHBoxLayout()
     trkr_layout.addWidget(self.trkr_slider)
     trkr_layout.addWidget(self.trkr_sb)
+    mdel_layout = QHBoxLayout()
+    mdel_layout.addWidget(self.model_cb)
+    mdel_layout.addWidget(self.coco_chk)
 
     layout = QFormLayout()
-    layout.addRow("Model:", self.model_cb)
+    layout.addRow("Model:", mdel_layout)
     layout.addRow("Conf. threshold:", conf_layout)
     layout.addRow("Tracker threshold:", trkr_layout)
     layout.addWidget(self.trkr_reset_btn)
@@ -117,10 +122,10 @@ class SideBar(QWidget):
     self.roi_l_slider.setRange(0, 1)
     self.roi_r_slider.setRange(0, 1)
 
-    self.roi_t_slider.setValue((0.42, 0.52))
-    self.roi_b_slider.setValue((0.41, 0.58))
-    self.roi_l_slider.setValue((0.37, 0.86))
-    self.roi_r_slider.setValue((0.37, 0.86))
+    self.roi_t_slider.setValue((0.33, 0.63))
+    self.roi_b_slider.setValue((0.17, 0.71))
+    self.roi_l_slider.setValue((0.3, 0.86))
+    self.roi_r_slider.setValue((0.3, 0.86))
 
     self.ul_x_sb = DoubleSpinBox(value=self.roi_t_slider.value()[0])
     self.ur_x_sb = DoubleSpinBox(value=self.roi_t_slider.value()[1])
@@ -166,6 +171,7 @@ class SideBar(QWidget):
     self.file_pb.clicked.connect(self.on_file_pb_clicked)
     self.url_pb.clicked.connect(self.on_url_pb_clicked)
     self.model_cb.currentTextChanged.connect(self.on_model_changed)
+    self.coco_chk.toggled.connect(self.parent().frame_widget.on_coco_toggled)
     self.trkr_reset_btn.clicked.connect(self.on_trkr_reset_clicked)
     self.roi_t_slider.valueChanged.connect(self.on_roi_t_changed)
     self.roi_b_slider.valueChanged.connect(self.on_roi_b_changed)
