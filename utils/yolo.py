@@ -148,7 +148,7 @@ if __name__ == "__main__":
 
   tracker = EuclideanDistTracker()
   colors = [hex2bgr("23aaf2"), hex2bgr("f9394a"), hex2bgr("18b400")]
-  verbose = False
+  verbose = True
   img = cv2.imread("media/test (1).png")
   img_h, img_w = img.shape[:2]
   path = "models/seatbelt-tiny.onnx"

@@ -106,8 +106,8 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     gain = ratio_pad[0][0]
     pad = ratio_pad[1]
 
-  coords[:, [0, 2]] -= pad[0]  # x padding
-  coords[:, [1, 3]] -= pad[1]  # y padding
+  coords[:, ::2] -= pad[0]  # x padding
+  coords[:, 1::2] -= pad[1]  # y padding
   coords[:, :4] /= gain
   clip_coords(coords, img0_shape)
   return coords
@@ -115,8 +115,8 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
 
 def clip_coords(boxes, img_shape):
   # Clip bounding xyxy bounding boxes to image shape (height, width)
-  boxes[:, [0, 2]] = boxes[:, [0, 2]].clip(0, img_shape[1])  # x1, x2
-  boxes[:, [1, 3]] = boxes[:, [1, 3]].clip(0, img_shape[0])  # y1, y2
+  boxes[:, ::2] = boxes[:, ::2].clip(0, img_shape[1])  # x1, x2
+  boxes[:, 1::2] = boxes[:, 1::2].clip(0, img_shape[0])  # y1, y2
 
 
 def expand_boxes(boxroi, roi_tl):
