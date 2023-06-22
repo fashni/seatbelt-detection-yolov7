@@ -62,6 +62,7 @@ class SideBar(QWidget):
     trkr_layout.addWidget(self.trkr_sb)
     mdel_layout = QHBoxLayout()
     mdel_layout.addWidget(self.model_cb)
+    mdel_layout.addStretch(1)
     mdel_layout.addWidget(self.coco_chk)
 
     layout = QFormLayout()
@@ -116,6 +117,7 @@ class SideBar(QWidget):
     self.roi_b_slider = QDoubleRangeSlider(Qt.Orientation.Horizontal, self.roi_gb)
     self.roi_l_slider = QDoubleRangeSlider(Qt.Orientation.Horizontal, self.roi_gb)
     self.roi_r_slider = QDoubleRangeSlider(Qt.Orientation.Horizontal, self.roi_gb)
+    self.full_frame_chk = QCheckBox("Full frame")
 
     self.roi_t_slider.setRange(0, 1)
     self.roi_b_slider.setRange(0, 1)
@@ -154,11 +156,14 @@ class SideBar(QWidget):
     r_layout.addWidget(self.ur_y_sb)
     r_layout.addWidget(self.br_y_sb)
 
-    layout = QFormLayout()
-    layout.addRow("top:", t_layout)
-    layout.addRow("left:", l_layout)
-    layout.addRow("bottom:", b_layout)
-    layout.addRow("right:", r_layout)
+    slayout = QFormLayout()
+    slayout.addRow("top:", t_layout)
+    slayout.addRow("left:", l_layout)
+    slayout.addRow("bottom:", b_layout)
+    slayout.addRow("right:", r_layout)
+    layout = QVBoxLayout()
+    layout.addLayout(slayout)
+    layout.addWidget(self.full_frame_chk)
     self.roi_gb.setLayout(layout)
 
   def _connect(self):
@@ -172,6 +177,7 @@ class SideBar(QWidget):
     self.url_pb.clicked.connect(self.on_url_pb_clicked)
     self.model_cb.currentTextChanged.connect(self.on_model_changed)
     self.coco_chk.toggled.connect(self.parent().frame_widget.on_coco_toggled)
+    self.full_frame_chk.toggled.connect(self.on_full_frame_toggled)
     self.trkr_reset_btn.clicked.connect(self.on_trkr_reset_clicked)
     self.roi_t_slider.valueChanged.connect(self.on_roi_t_changed)
     self.roi_b_slider.valueChanged.connect(self.on_roi_b_changed)
@@ -185,6 +191,32 @@ class SideBar(QWidget):
     self.bl_y_sb.valueChanged.connect(self.on_bl_y_changed)
     self.ur_y_sb.valueChanged.connect(self.on_ur_y_changed)
     self.br_y_sb.valueChanged.connect(self.on_br_y_changed)
+
+  @Slot()
+  def on_full_frame_toggled(self, state):
+    if not state:
+      self.parent().parent().frame_worker.engine.roi = self.old_roi
+    else:
+      self.old_roi = [
+        self.roi_t_slider.value(), self.roi_b_slider.value(),
+        self.roi_l_slider.value(), self.roi_r_slider.value()
+      ]
+      self.parent().parent().frame_worker.engine.roi = [
+        (0, 1), (0, 1), (0, 1), (0, 1)
+      ]
+
+    self.ul_x_sb.setDisabled(state)
+    self.ur_x_sb.setDisabled(state)
+    self.bl_x_sb.setDisabled(state)
+    self.br_x_sb.setDisabled(state)
+    self.ul_y_sb.setDisabled(state)
+    self.ur_y_sb.setDisabled(state)
+    self.bl_y_sb.setDisabled(state)
+    self.br_y_sb.setDisabled(state)
+    self.roi_t_slider.setDisabled(state)
+    self.roi_b_slider.setDisabled(state)
+    self.roi_l_slider.setDisabled(state)
+    self.roi_r_slider.setDisabled(state)
 
   @Slot()
   def on_camera_changed(self, value):
@@ -211,7 +243,7 @@ class SideBar(QWidget):
 
   @Slot()
   def on_file_pb_clicked(self, value):
-    file_url, file_type = QFileDialog.getOpenFileUrl(self, "Open Video", "/", "Videos (*.mp4 *.m4v *.mkv *.avi *.flv *.mov);; All Files (*.*)")
+    file_url, file_type = QFileDialog.getOpenFileUrl(self, "Open Video", "/", "Videos (*.mp4 *.m4v *.mkv *.avi *.flv *.mov *.webm);; All Files (*.*)")
     self.parent().parent().frame_widget.setSource(file_url)
 
   @Slot()

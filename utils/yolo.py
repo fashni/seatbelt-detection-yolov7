@@ -39,7 +39,7 @@ class YoloInfer:
 
     print(path)
 
-    self.session = ort.InferenceSession(path, providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
+    self.session = ort.InferenceSession(path, providers=["CUDAExecutionProvider", "DmlExecutionProvider", "CPUExecutionProvider"])
     self.get_input_details()
     self.get_output_details()
     self.warmup()
