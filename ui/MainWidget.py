@@ -1,5 +1,5 @@
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import (QHBoxLayout, QMessageBox, QPushButton,
+from PySide6.QtWidgets import (QHBoxLayout, QLabel, QMessageBox, QPushButton,
                                QSplitter, QStatusBar, QVBoxLayout, QWidget)
 
 from ui import FrameWidget, ResultTable, SideBar
@@ -45,7 +45,16 @@ class MainWidget(QWidget):
     self.clear_data_pb.clicked.connect(self.clear_data)
 
   def set_status_bar(self, status_bar: QStatusBar):
+    providers = [
+      prov.replace("ExecutionProvider", "")
+      for prov in self.frame_worker.engine.providers
+    ]
     self.status_bar = status_bar
+    self.file_lbl = QLabel()
+    self.exprov_lbl = QLabel()
+    self.status_bar.addPermanentWidget(self.file_lbl)
+    self.status_bar.addPermanentWidget(self.exprov_lbl)
+    self.exprov_lbl.setText(", ".join(providers))
 
   @Slot()
   def save_data(self):

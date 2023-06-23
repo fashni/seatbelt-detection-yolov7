@@ -243,7 +243,10 @@ class SideBar(QWidget):
   @Slot()
   def on_file_pb_clicked(self, value):
     file_url, file_type = QFileDialog.getOpenFileUrl(self, "Open Video", "/", "Videos (*.mp4 *.m4v *.mkv *.avi *.flv *.mov *.webm);; All Files (*.*)")
+    if not file_url.fileName():
+      return
     self._parent.frame_widget.setSource(file_url)
+    self._parent.file_lbl.setText(file_url.fileName())
 
   @Slot()
   def on_url_pb_clicked(self, value):
