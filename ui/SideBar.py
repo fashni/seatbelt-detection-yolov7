@@ -15,6 +15,7 @@ from ui import DoubleSpinBox
 class SideBar(QWidget):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
+    self._parent = self.parent()
     self.model_dir = Path("models")
     self.model_dir.mkdir(exist_ok=True)
     self.create_input_panel()
@@ -176,7 +177,7 @@ class SideBar(QWidget):
     self.file_pb.clicked.connect(self.on_file_pb_clicked)
     self.url_pb.clicked.connect(self.on_url_pb_clicked)
     self.model_cb.currentTextChanged.connect(self.on_model_changed)
-    self.coco_chk.toggled.connect(self.parent().frame_widget.on_coco_toggled)
+    self.coco_chk.toggled.connect(self._parent.frame_widget.on_coco_toggled)
     self.full_frame_chk.toggled.connect(self.on_full_frame_toggled)
     self.trkr_reset_btn.clicked.connect(self.on_trkr_reset_clicked)
     self.roi_t_slider.valueChanged.connect(self.on_roi_t_changed)
@@ -195,15 +196,13 @@ class SideBar(QWidget):
   @Slot()
   def on_full_frame_toggled(self, state):
     if not state:
-      self.parent().parent().frame_worker.engine.roi = self.old_roi
+      self._parent.frame_worker.engine.roi = self.old_roi
     else:
       self.old_roi = [
         self.roi_t_slider.value(), self.roi_b_slider.value(),
         self.roi_l_slider.value(), self.roi_r_slider.value()
       ]
-      self.parent().parent().frame_worker.engine.roi = [
-        (0, 1), (0, 1), (0, 1), (0, 1)
-      ]
+      self._parent.frame_worker.engine.roi = [(0, 1)] * 4
 
     self.ul_x_sb.setDisabled(state)
     self.ur_x_sb.setDisabled(state)
@@ -220,31 +219,31 @@ class SideBar(QWidget):
 
   @Slot()
   def on_camera_changed(self, value):
-    self.parent().parent().frame_widget.setCamera(self.cameras[value])
+    self._parent.frame_widget.setCamera(self.cameras[value])
 
   @Slot()
   def on_source_changed(self, value):
     self.sources_widget.setCurrentIndex(value)
-    self.parent().parent().frame_widget.change_mode(value)
+    self._parent.frame_widget.change_mode(value)
 
   @Slot(str)
   def on_model_changed(self, value: str):
     model = self.model_dir / value
     if not model.is_file():
       return
-    self.parent().parent().frame_worker.set_model(
+    self._parent.frame_worker.set_model(
       model_path = str(model),
       conf = self.conf_slider.value()/100,
       roi = [
         self.roi_t_slider.value(), self.roi_b_slider.value(),
         self.roi_l_slider.value(), self.roi_r_slider.value()
-      ]
+      ] if not self.full_frame_chk.isChecked() else [(0, 1)] * 4
     )
 
   @Slot()
   def on_file_pb_clicked(self, value):
     file_url, file_type = QFileDialog.getOpenFileUrl(self, "Open Video", "/", "Videos (*.mp4 *.m4v *.mkv *.avi *.flv *.mov *.webm);; All Files (*.*)")
-    self.parent().parent().frame_widget.setSource(file_url)
+    self._parent.frame_widget.setSource(file_url)
 
   @Slot()
   def on_url_pb_clicked(self, value):
@@ -252,25 +251,25 @@ class SideBar(QWidget):
 
   @Slot()
   def on_trkr_reset_clicked(self, value):
-    self.parent().parent().frame_worker.tracker.reset()
+    self._parent.frame_worker.tracker.reset()
     # self.parent().parent().table.clear_table()
 
   @Slot()
   def on_trkr_changed(self, value):
     self.trkr_sb.setValue(value)
-    self.parent().parent().frame_worker.tracker.thres = value
+    self._parent.frame_worker.tracker.thres = value
 
   @Slot()
   def on_conf_changed(self, value):
     val = value/100
     self.conf_sb.setValue(val)
-    self.parent().parent().frame_worker.engine.conf = val
+    self._parent.frame_worker.engine.conf = val
 
   @Slot()
   def on_roi_t_changed(self, value):
     self.ul_x_sb.setValue(value[0])
     self.ur_x_sb.setValue(value[1])
-    self.parent().parent().frame_worker.engine.roi = [
+    self._parent.frame_worker.engine.roi = [
       value, self.roi_b_slider.value(),
       self.roi_l_slider.value(), self.roi_r_slider.value()
     ]
@@ -279,7 +278,7 @@ class SideBar(QWidget):
   def on_roi_b_changed(self, value):
     self.bl_x_sb.setValue(value[0])
     self.br_x_sb.setValue(value[1])
-    self.parent().parent().frame_worker.engine.roi = [
+    self._parent.frame_worker.engine.roi = [
       self.roi_t_slider.value(), value,
       self.roi_l_slider.value(), self.roi_r_slider.value()
     ]
@@ -288,7 +287,7 @@ class SideBar(QWidget):
   def on_roi_l_changed(self, value):
     self.ul_y_sb.setValue(value[0])
     self.bl_y_sb.setValue(value[1])
-    self.parent().parent().frame_worker.engine.roi = [
+    self._parent.frame_worker.engine.roi = [
       self.roi_t_slider.value(), self.roi_b_slider.value(),
       value, self.roi_r_slider.value()
     ]
@@ -297,7 +296,7 @@ class SideBar(QWidget):
   def on_roi_r_changed(self, value):
     self.ur_y_sb.setValue(value[0])
     self.br_y_sb.setValue(value[1])
-    self.parent().parent().frame_worker.engine.roi = [
+    self._parent.frame_worker.engine.roi = [
       self.roi_t_slider.value(), self.roi_b_slider.value(),
       self.roi_l_slider.value(), value
     ]

@@ -31,6 +31,8 @@ class MainWindow(QMainWindow):
       self.theme_menu.addAction(theme_action)
     self._theme_group.triggered.connect(self._changeStyle)
 
+    self.statusBar().showMessage("Ready")
+    widget.set_status_bar(self.statusBar())
     self.setCentralWidget(widget)
 
   @Slot(QAction)

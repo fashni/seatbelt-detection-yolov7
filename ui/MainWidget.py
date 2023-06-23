@@ -1,6 +1,6 @@
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import (QHBoxLayout, QMessageBox, QPushButton,
-                               QSplitter, QVBoxLayout, QWidget)
+                               QSplitter, QStatusBar, QVBoxLayout, QWidget)
 
 from ui import FrameWidget, ResultTable, SideBar
 from utils.worker import YoloFrameWorker
@@ -10,6 +10,7 @@ class MainWidget(QWidget):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
 
+    self.status_bar = None
     self.table = ResultTable()
     self.frame_worker = YoloFrameWorker(conf=0.55, result_table=self.table)
     self.frame_widget = FrameWidget(worker=self.frame_worker)
@@ -42,6 +43,9 @@ class MainWidget(QWidget):
     self.left_sidebar.on_model_changed(self.left_sidebar.model_cb.currentText())
     self.save_data_pb.clicked.connect(self.save_data)
     self.clear_data_pb.clicked.connect(self.clear_data)
+
+  def set_status_bar(self, status_bar: QStatusBar):
+    self.status_bar = status_bar
 
   @Slot()
   def save_data(self):

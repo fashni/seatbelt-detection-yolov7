@@ -139,17 +139,10 @@ def cv2_imshow(image):
   cv2.destroyAllWindows()
 
 
-def bbox_iou(box1, box2, x1y1x2y2=True):
-  if not x1y1x2y2:
-    # Transform from center and width to exact coordinates
-    b1_x1, b1_x2 = box1[:, 0] - box1[:, 2] / 2, box1[:, 0] + box1[:, 2] / 2
-    b1_y1, b1_y2 = box1[:, 1] - box1[:, 3] / 2, box1[:, 1] + box1[:, 3] / 2
-    b2_x1, b2_x2 = box2[:, 0] - box2[:, 2] / 2, box2[:, 0] + box2[:, 2] / 2
-    b2_y1, b2_y2 = box2[:, 1] - box2[:, 3] / 2, box2[:, 1] + box2[:, 3] / 2
-  else:
-    # Get the coordinates of bounding boxes
-    b1_x1, b1_y1, b1_x2, b1_y2 = box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3]
-    b2_x1, b2_y1, b2_x2, b2_y2 = box2[:, 0], box2[:, 1], box2[:, 2], box2[:, 3]
+def bbox_iou(box1, box2):
+  # Get the coordinates of bounding boxes
+  b1_x1, b1_y1, b1_x2, b1_y2 = box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3]
+  b2_x1, b2_y1, b2_x2, b2_y2 = box2[:, 0], box2[:, 1], box2[:, 2], box2[:, 3]
 
   # Get the coordinates of the intersection rectangle
   inter_rect_x1 = np.maximum(b1_x1, b2_x1)
@@ -161,8 +154,6 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
   inter_rect_y = inter_rect_y2 - inter_rect_y1 + 1
   inter_area = np.minimum(inter_rect_x.max(), np.maximum(inter_rect_x, 0)) * \
                np.minimum(inter_rect_y.max(), np.maximum(inter_rect_y, 0))
-  # inter_area = np.clip(inter_rect_x, 0, None) * \
-  #              np.clip(inter_rect_y, 0, None)
 
   # Union Area
   b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)

@@ -11,8 +11,9 @@ from utils import (draw_detections, draw_roi, expand_boxes, hex2bgr, letterbox,
 
 class YoloInfer:
   def __init__(self, path=None, conf=0.35, verbose=False):
+    self.providers = ort.get_available_providers()
+    self.roi = [(0, 1)] * 4
     self.conf = conf
-    self.roi = [(0, 1), (0, 1), (0, 1), (0, 1)]
     self.verbose = verbose
     self.class_names = None
     if path is not None:
@@ -37,9 +38,7 @@ class YoloInfer:
       with classes_path.open("r") as f:
         self.class_names = [line.replace("\n", "") for line in f.readlines()]
 
-    print(path)
-
-    self.session = ort.InferenceSession(path, providers=["CUDAExecutionProvider", "DmlExecutionProvider", "CPUExecutionProvider"])
+    self.session = ort.InferenceSession(path, providers=self.providers)
     self.get_input_details()
     self.get_output_details()
     self.warmup()
