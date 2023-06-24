@@ -52,6 +52,7 @@ class MainWidget(QWidget):
     self.status_bar = status_bar
     self.file_lbl = QLabel()
     self.exprov_lbl = QLabel()
+    self.exprov_lbl.setStatusTip("Active Execution Providers")
     self.status_bar.addPermanentWidget(self.file_lbl)
     self.status_bar.addPermanentWidget(self.exprov_lbl)
     self.exprov_lbl.setText(", ".join(providers))

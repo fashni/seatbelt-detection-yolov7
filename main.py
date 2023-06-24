@@ -3,9 +3,12 @@ import sys
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import QApplication, QComboBox, QMainWindow, QStyleFactory
+from dotenv import load_dotenv
 
 from ui import MainWidget
 
+
+load_dotenv(override=True)
 
 class MainWindow(QMainWindow):
   def __init__(self, widget):

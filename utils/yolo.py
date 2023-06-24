@@ -6,7 +6,7 @@ import numpy as np
 import onnxruntime as ort
 
 from utils import (draw_detections, draw_roi, expand_boxes, hex2bgr, letterbox,
-                   plot_one_box, scale_coords)
+                   scale_coords)
 
 
 class YoloInfer:
@@ -77,7 +77,7 @@ class YoloInfer:
 
     roi = image.copy() if full else self.get_roi(image)
 
-    roi = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
+    # roi = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
     roi, _, _ = letterbox(roi, (self.input_h, self.input_w), auto=False)
     roi = roi / 255.0
     roi = roi.transpose(2, 0, 1)
