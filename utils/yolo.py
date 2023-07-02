@@ -5,13 +5,15 @@ import cv2
 import numpy as np
 import onnxruntime as ort
 
+from cfg import get_configs
 from utils import (draw_detections, draw_roi, expand_boxes, hex2bgr, letterbox,
                    scale_coords)
 
 
 class YoloInfer:
   def __init__(self, path=None, conf=0.35, verbose=False):
-    self.providers = ort.get_available_providers()
+    providers = get_configs()["providers"]
+    self.providers = [provider for provider in providers if provider in ort.get_available_providers()]
     self.roi = [(0, 1)] * 4
     self.conf = conf
     self.verbose = verbose
@@ -39,6 +41,7 @@ class YoloInfer:
         self.class_names = [line.replace("\n", "") for line in f.readlines()]
 
     self.session = ort.InferenceSession(path, providers=self.providers)
+    self.providers = self.session.get_providers()
     self.get_input_details()
     self.get_output_details()
     self.warmup()

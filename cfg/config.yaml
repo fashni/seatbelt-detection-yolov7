@@ -1,0 +1,8 @@
+configs:
+  providers:
+    - TensorrtExecutionProvider
+    - CUDAExecutionProvider
+    - DmlExecutionProvider
+    - CPUExecutionProvider
+envs:
+  QT_MEDIA_BACKEND: windows
