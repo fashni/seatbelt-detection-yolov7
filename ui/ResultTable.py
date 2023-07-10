@@ -4,11 +4,10 @@ from pathlib import Path
 
 import numpy as np
 import numpy.typing as npt
-from PySide6.QtCore import Qt, Slot
-from PySide6.QtWidgets import (QHeaderView, QLabel, QTableWidget,
-                               QTableWidgetItem)
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QHeaderView, QTableWidget, QTableWidgetItem
 
-from utils import array2pix
+from utils import rgb8_to_jpeg
 
 
 # (idx, max(recs['n_passenger']), max(recs['n_seat_belt']))
@@ -19,23 +18,44 @@ class ResultTable(QTableWidget):
     self.setColumnCount(3)
     self.setHorizontalHeaderLabels(["id", "n_ps", "n_sb"])
     self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-    self._data = None
+    self.clear_data()
+    self._save = False
+
+  @property
+  def save(self):
+    return self._save
+
+  @save.setter
+  def save(self, state: bool):
+    self._save = state
 
   def update(self, cboxes_id: npt.NDArray, frame_id: int, frame: npt.NDArray[np.uint8]):
     if self._data is None:
       self._data = {}
+      self._img_id = {}
+      self.outdir = Path("runs")
+      self.outdir.mkdir(exist_ok=True)
+      self.rundir = self.outdir / f"result_{datetime.timestamp(datetime.now())}"
+      self.rundir.mkdir(exist_ok=True)
+
     for cbox in cboxes_id:
       box = cbox[:4]
       oid, n_ps, n_sb = cbox[4:].astype(int).tolist()
       img = frame[int(box[1]):int(box[3]), int(box[0]):int(box[2]), :]
+      oid_dir = self.rundir / f"{oid}"
       if oid not in self._data.keys():
+        self._img_id[oid] = 0
         self._data[oid] = {
           "frame_id": [frame_id],
           "bbox": [box.tolist()],
           "n_passenger": [n_ps],
           "n_seatbelt": [n_sb],
-          "image": [img.tolist()]
+          "image": [f"{oid}/{self._img_id[oid]}.jpg"]
         }
+        if self.save:
+          oid_dir.mkdir(exist_ok=True)
+          with (oid_dir / f"{self._img_id[oid]}.jpg").open("wb") as f:
+            f.write(rgb8_to_jpeg(img, 100))
         continue
 
       if "frame_id" in self._data[oid].keys():
@@ -58,15 +78,20 @@ class ResultTable(QTableWidget):
       else:
         self._data[oid]["n_seatbelt"] = [n_sb]
 
+      self._img_id[oid] += 1
       if "image" in self._data[oid].keys():
-        self._data[oid]["image"] += [img.tolist()]
+        self._data[oid]["image"] += [f"{oid}/{self._img_id[oid]}.jpg"]
       else:
-        self._data[oid]["image"] = [img.tolist()]
+        self._data[oid]["image"] = [f"{oid}/{self._img_id[oid]}.jpg"]
 
-    # self.fill_table()
-    # print(self._data)
-    # with open("runs/result.json", "w") as f:
-    #   json.dump(self._data, f, indent=2)
+      if self.save:
+        oid_dir.mkdir(exist_ok=True)
+        with (oid_dir / f"{self._img_id[oid]}.jpg").open("wb") as f:
+          f.write(rgb8_to_jpeg(img, 100))
+
+    if self.save:
+      with (self.rundir / "data.json").open("w") as f:
+        json.dump(self._data, f)
 
   def fill_table(self, data=None):
     data = self._data if not data else data
@@ -75,11 +100,6 @@ class ResultTable(QTableWidget):
     self.clear_table()
     for idx in reversed(list(data.keys())):
       recs = data[idx]
-
-      # lbl = QLabel(self)
-      # lbl.setPixmap(array2pix(recs["image"][np.argmax([im.size for im in recs["image"]])]))
-      # lbl.setAlignment(Qt.AlignCenter)
-
       id_item = QTableWidgetItem(f"{idx:d}")
       id_item.setTextAlignment(Qt.AlignCenter)
       n_ps_item = QTableWidgetItem(f"{max(recs['n_passenger'])}")
@@ -90,19 +110,13 @@ class ResultTable(QTableWidget):
       self.setItem(self.items, 0, id_item)
       self.setItem(self.items, 1, n_ps_item)
       self.setItem(self.items, 2, n_sb_item)
-      # self.setCellWidget(self.items, 1, lbl)
       self.items += 1
 
   def clear_table(self):
     self.setRowCount(0)
     self.items = 0
 
-  def save_data(self):
-    if self._data is None:
-      return
-    outdir = Path("runs")
-    outdir.mkdir(exist_ok=True)
-    fn = outdir / f"result_{datetime.timestamp(datetime.now())}.json"
-    with fn.open("w") as f:
-      json.dump(self._data, f)
-    return str(fn)
+  def clear_data(self):
+    self._data = None
+    self._img_id = None
+

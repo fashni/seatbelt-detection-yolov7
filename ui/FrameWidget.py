@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QUrl, Slot
+from PySide6.QtCore import QUrl, Slot
 from PySide6.QtMultimedia import (QCamera, QCameraDevice, QMediaCaptureSession,
                                   QMediaDevices, QMediaPlayer, QVideoFrame,
                                   QVideoSink)

@@ -162,3 +162,10 @@ def bbox_iou(box1, box2):
   iou = inter_area / (b1_area + b2_area - inter_area + 1e-16)
 
   return iou
+
+def rgb8_to_jpeg(array, quality=95):
+  param = [int(cv2.IMWRITE_JPEG_QUALITY), quality]
+  status, buffer = cv2.imencode('.jpg', array[:, :, ::-1], param)
+  if status:
+    return bytes(buffer)
+  return None

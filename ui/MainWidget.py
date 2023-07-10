@@ -1,7 +1,8 @@
 import os
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import (QHBoxLayout, QLabel, QMessageBox, QPushButton,
-                               QSplitter, QStatusBar, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QHBoxLayout, QLabel, QMessageBox,
+                               QPushButton, QSplitter, QStatusBar, QVBoxLayout,
+                               QWidget)
 
 from ui import FrameWidget, ResultTable, SideBar
 from utils.worker import YoloFrameWorker
@@ -19,10 +20,10 @@ class MainWidget(QWidget):
 
     self.right_sidebar = QWidget()
     self.clear_data_pb = QPushButton("Clear Data")
-    self.save_data_pb = QPushButton("Save Data")
+    self.save_data_ck = QCheckBox("Save Data")
     button_layout = QHBoxLayout()
+    button_layout.addWidget(self.save_data_ck)
     button_layout.addStretch(1)
-    button_layout.addWidget(self.save_data_pb)
     button_layout.addWidget(self.clear_data_pb)
     r_layout = QVBoxLayout()
     r_layout.addWidget(self.table)
@@ -42,8 +43,9 @@ class MainWidget(QWidget):
     self.setLayout(self.layout)
 
     self.left_sidebar.on_model_changed(self.left_sidebar.model_cb.currentText())
-    self.save_data_pb.clicked.connect(self.save_data)
+    self.save_data_ck.toggled.connect(self.save_data)
     self.clear_data_pb.clicked.connect(self.clear_data)
+    self.save_data_ck.setChecked(True)
 
   def set_status_bar(self, status_bar: QStatusBar):
     providers = [
@@ -63,15 +65,13 @@ class MainWidget(QWidget):
     self.status_bar.addPermanentWidget(self.backend_lbl)
     self.status_bar.addPermanentWidget(self.exprov_lbl)
 
-    self.backend_lbl.setText(os.getenv("QT_MEDIA_BACKEND", ""))
+    self.file_lbl.setText("None")
+    self.backend_lbl.setText(os.getenv("QT_MEDIA_BACKEND", "None"))
     self.exprov_lbl.setText(", ".join(providers))
 
   @Slot()
-  def save_data(self):
-    filename = self.table.save_data()
-    if filename is not None:
-      ret = QMessageBox.information(self, "Data saved succesfully", f"{filename}")
-      return
+  def save_data(self, state):
+    self.table.save = state
 
   @Slot()
   def clear_data(self):
@@ -79,7 +79,7 @@ class MainWidget(QWidget):
     if ret == QMessageBox.No:
       return
     self.table.clear_table()
-    self.table._data = None
+    self.table.clear_data()
     self.frame_worker.tracker.reset()
 
   def on_close(self):
