@@ -4,11 +4,12 @@ from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import QApplication, QMainWindow, QStyleFactory
 
-from cfg import set_environment_variables
+from cfg import set_environment_variables, get_configs
 from ui import MainWidget
 
 
 set_environment_variables()
+configs = get_configs()
 
 class MainWindow(QMainWindow):
   def __init__(self, widget):
@@ -29,7 +30,7 @@ class MainWindow(QMainWindow):
       theme_action = QAction(theme, self._theme_group)
       theme_action.setCheckable(True)
       theme_action.setData(theme)
-      if theme.casefold() == "fusion":
+      if theme.casefold() == configs.get("theme"):
         theme_action.setChecked(True)
       self.theme_menu.addAction(theme_action)
     self._theme_group.triggered.connect(self._changeStyle)
@@ -58,7 +59,7 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
   app = QApplication(sys.argv)
-  QApplication.setStyle(QStyleFactory.create("fusion"))
+  QApplication.setStyle(QStyleFactory.create(configs.get("theme")))
   QApplication.setPalette(QApplication.style().standardPalette())
 
   widget = MainWidget()

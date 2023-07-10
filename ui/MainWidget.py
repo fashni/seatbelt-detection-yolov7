@@ -1,3 +1,4 @@
+import os
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import (QHBoxLayout, QLabel, QMessageBox, QPushButton,
                                QSplitter, QStatusBar, QVBoxLayout, QWidget)
@@ -51,10 +52,18 @@ class MainWidget(QWidget):
     ]
     self.status_bar = status_bar
     self.file_lbl = QLabel()
+    self.backend_lbl = QLabel()
     self.exprov_lbl = QLabel()
+
+    self.file_lbl.setStatusTip("Active Media")
+    self.backend_lbl.setStatusTip("Media Backend")
     self.exprov_lbl.setStatusTip("Active Execution Providers")
+
     self.status_bar.addPermanentWidget(self.file_lbl)
+    self.status_bar.addPermanentWidget(self.backend_lbl)
     self.status_bar.addPermanentWidget(self.exprov_lbl)
+
+    self.backend_lbl.setText(os.getenv("QT_MEDIA_BACKEND", ""))
     self.exprov_lbl.setText(", ".join(providers))
 
   @Slot()

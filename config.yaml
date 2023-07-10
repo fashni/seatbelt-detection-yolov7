@@ -1,0 +1,9 @@
+configs:
+  providers:
+  - TensorrtExecutionProvider
+  - CUDAExecutionProvider
+  - DmlExecutionProvider
+  - CPUExecutionProvider
+  theme: fusion
+envs:
+  QT_MEDIA_BACKEND: windows
