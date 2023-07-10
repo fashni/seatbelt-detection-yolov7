@@ -2,11 +2,11 @@ import sys
 
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction, QActionGroup
-from PySide6.QtWidgets import QApplication, QMainWindow, QStyleFactory
+from PySide6.QtWidgets import (QApplication, QMainWindow, QMessageBox,
+                               QStyleFactory)
 
-from cfg import set_environment_variables, get_configs
+from cfg import get_configs, set_environment_variables
 from ui import MainWidget
-
 
 set_environment_variables()
 configs = get_configs()
@@ -39,6 +39,17 @@ class MainWindow(QMainWindow):
     widget.set_status_bar(self.statusBar())
     self.setCentralWidget(widget)
 
+  def check_model(self):
+    if self.centralWidget().left_sidebar.model_cb.count() > 0:
+      return
+    QMessageBox.warning(
+      self.centralWidget(),
+      "No Model", "No ONNX model found in the model directory",
+      buttons=QMessageBox.Close
+    )
+    self.exit_app(True)
+    sys.exit()
+
   @Slot(QAction)
   def _changeStyle(self, style: QAction):
     self.changeStyle(style.data())
@@ -66,5 +77,6 @@ if __name__ == "__main__":
   window = MainWindow(widget)
   window.resize(1000, 600)
   window.show()
+  window.check_model()
 
   sys.exit(app.exec())
