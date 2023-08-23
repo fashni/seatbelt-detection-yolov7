@@ -167,3 +167,4 @@ env*/
 *.exe
 *.onnx
 models/yolov7-tiny.txt
+old/
