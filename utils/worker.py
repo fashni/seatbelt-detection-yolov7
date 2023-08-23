@@ -211,6 +211,8 @@ class YoloFrameWorker(VideoFrameWorker):
     for wbox in windshields_id:
       box = wbox.astype(int)
       ws = img[box[1]:box[3], box[0]:box[2], :]
+      if ws.shape[0] == 0 or ws.shape[1] == 0:
+        continue
       ps_res = self.engine.detect(ws, classes=[1, 2], full=True)
       ps_boxes, ps_scores, ps_class_ids = ps_res
       draw_detections(ws, *ps_res, class_names=self.engine.class_names, colors=self.colors)

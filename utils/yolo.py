@@ -7,7 +7,7 @@ import onnxruntime as ort
 
 from cfg import get_configs
 from utils import (draw_detections, draw_roi, expand_boxes, hex2bgr, letterbox,
-                   scale_coords)
+                   scale_coords, xywh2xyxy)
 
 
 class YoloInfer:
@@ -18,6 +18,7 @@ class YoloInfer:
     self.conf = conf
     self.verbose = verbose
     self.class_names = None
+    self.v8 = False
     if path is not None:
       self.init_model(path)
 
@@ -36,6 +37,7 @@ class YoloInfer:
 
   def init_model(self, path: str):
     classes_path = Path(path).with_suffix(".txt")
+    self.v8 = "v8" in classes_path.name
     if classes_path.is_file():
       with classes_path.open("r") as f:
         self.class_names = [line.replace("\n", "") for line in f.readlines()]
@@ -102,8 +104,42 @@ class YoloInfer:
   def detect(self, image: np.ndarray, classes=None, full=True):
     input_tensor = self.preprocess(image, full)
     outputs = self.inference(input_tensor)
-
+    if self.v8:
+      return self.postprocessv8(outputs, classes, full)
     return self.postprocess(outputs, classes, full)
+
+  def postprocessv8(self, outputs: np.ndarray, classes=None, full=True):
+    start = time.perf_counter()
+
+    if full:
+      self.roi_h = self.img_h
+      self.roi_w = self.img_w
+
+    det_boxes, det_scores, det_classes, ndets = outputs
+    out = np.hstack((det_classes.T, det_boxes[0], det_scores.T))
+    if classes is not None:
+      if isinstance(classes, int):
+        classes = [classes]
+      out = out[(out[:, 0:1] == np.array(classes)).any(1)]
+
+    out = out[out[:, -1] > self.conf, :]
+    if out.shape[0] == 0:
+      if self.verbose:
+        print(f"Postprocess time: {(time.perf_counter() - start)*1000:.2f} ms")
+      return np.array([]), np.array([]), np.array([])
+
+    scores = out[:, -1]
+    class_ids = out[:, 0].astype(int)
+    boxes = scale_coords((self.input_h, self.input_w), xywh2xyxy(out[:, 1:5]), (self.roi_h, self.roi_w))
+    #boxes = out[:, 1:5]
+
+    if not full:
+      expand_boxes(boxes, (self.roi_l, self.roi_t))
+
+    if self.verbose:
+      print(f"Postprocess time: {(time.perf_counter() - start)*1000:.2f} ms")
+
+    return boxes, scores, class_ids
 
   def postprocess(self, outputs: np.ndarray, classes=None, full=True):
     start = time.perf_counter()
