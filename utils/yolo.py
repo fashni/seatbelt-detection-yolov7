@@ -1,8 +1,10 @@
 import time
 from pathlib import Path
+from typing import Any, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 import onnxruntime as ort
 
 from cfg import get_configs
@@ -11,7 +13,7 @@ from utils import (draw_detections, draw_roi, expand_boxes, hex2bgr, letterbox,
 
 
 class YoloInfer:
-  def __init__(self, path=None, conf=0.35, verbose=False):
+  def __init__(self, path: Optional[str] = None, conf: float = 0.35, verbose: bool = False) -> None:
     providers = get_configs()["providers"]
     self.providers = [provider for provider in providers if provider in ort.get_available_providers()]
     self.roi = [(0, 1)] * 4
@@ -21,7 +23,7 @@ class YoloInfer:
     if path is not None:
       self.init_model(path)
 
-  def __call__(self, image, classes=None, full=True):
+  def __call__(self, image: List[np.ndarray], classes: Optional[Union[int, List[int]]] = None, full: bool = True):
     return self.detect(image, classes, full)
 
   @property
@@ -48,7 +50,7 @@ class YoloInfer:
 
   def warmup(self):
     print("Warming up...")
-    warmup_data = np.zeros((self.input_h, self.input_w, 3)).astype(np.uint8)
+    warmup_data = [np.zeros((self.input_h, self.input_w, 3)).astype(np.uint8)]
     self.detect(warmup_data, full=True)
     print("Ready")
 
@@ -62,35 +64,41 @@ class YoloInfer:
     outputs = self.session.get_outputs()
     self.output_names = [outp.name for outp in outputs]
 
-  def get_roi_vertices(self, image: np.ndarray) -> np.ndarray:
-    self.img_h, self.img_w = image.shape[:2]
-    self.verts = (self._roi * [self.img_w, self.img_h]).astype(int)
+  def get_roi_vertices(self, image: np.ndarray):
+    img_h, img_w = image.shape[:2]
+    self.verts = (self._roi * [img_w, img_h]).astype(int)
+    self.roi_ltwh = cv2.boundingRect(self.verts)
 
-  def get_roi(self, image: np.ndarray) -> np.ndarray:
-    self.get_roi_vertices(image)
-    self.roi_l, self.roi_t, self.roi_w, self.roi_h = cv2.boundingRect(self.verts)
+  def get_roi(self, image: np.ndarray) -> npt.NDArray:
+    roi_l, roi_t, roi_w, roi_h = self.roi_ltwh
     mask = np.zeros(image.shape, dtype=np.uint8)
     cv2.fillPoly(mask, [np.int32(self.verts)], (255,)*image.shape[2])
     masked = cv2.bitwise_and(image, mask)
-    return masked[self.roi_t:self.roi_t+self.roi_h, self.roi_l:self.roi_l+self.roi_w, :]
+    return masked[roi_t:roi_t+roi_h, roi_l:roi_l+roi_w, :]
 
-  def preprocess(self, image: np.ndarray, full=True) -> np.ndarray:
+  def preprocess(self, images: List[np.ndarray], full: bool = True) -> npt.NDArray[np.float32]:
     start = time.perf_counter()
-    self.img_h, self.img_w = image.shape[:2]
+    n_imgs = len(images)
+    self.img_h, self.img_w = np.zeros(n_imgs), np.zeros(n_imgs)
+    if not full:
+      self.get_roi_vertices(images[0])
 
-    roi = image.copy() if full else self.get_roi(image)
-
-    # roi = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
-    roi, _, _ = letterbox(roi, (self.input_h, self.input_w), auto=False)
-    roi = roi / 255.0
-    roi = roi.transpose(2, 0, 1)
+    input_tensors = np.zeros((n_imgs, 3, self.input_h, self.input_w), dtype=np.float32)
+    for idx, image in enumerate(images):
+      self.img_h[idx], self.img_w[idx] = image.shape[:2]
+      roi = image.copy() if full else self.get_roi(image)
+      # roi = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
+      roi, _, _ = letterbox(roi, (self.input_h, self.input_w), auto=False)
+      roi = roi / 255.0
+      roi = roi.transpose(2, 0, 1)
+      input_tensors[idx, :, :, :] = roi.astype(np.float32)
 
     if self.verbose:
       print(f"Preprocess time: {(time.perf_counter() - start)*1000:.2f} ms")
 
-    return roi[np.newaxis, :, :, :].astype(np.float32)
+    return input_tensors
 
-  def inference(self, input_tensor: np.ndarray) -> np.ndarray:
+  def inference(self, input_tensor: np.ndarray) -> List[Any]:
     start = time.perf_counter()
     outputs = self.session.run(self.output_names, {self.input_names[0]: input_tensor})
 
@@ -99,43 +107,49 @@ class YoloInfer:
 
     return outputs
 
-  def detect(self, image: np.ndarray, classes=None, full=True):
+  def detect(self, image: List[np.ndarray], classes: Optional[Union[int, List[int]]] = None, full: bool=True):
     input_tensor = self.preprocess(image, full)
     outputs = self.inference(input_tensor)
 
     return self.postprocess(outputs, classes, full)
 
-  def postprocess(self, outputs: np.ndarray, classes=None, full=True):
+  def postprocess(self, outputs: List, classes: Optional[Union[int, List[int]]] = None, full: bool = True) -> Tuple[List[npt.NDArray[Any]], List[npt.NDArray[Any]], List[npt.NDArray[Any]]]:
     start = time.perf_counter()
-
-    if full:
-      self.roi_h = self.img_h
-      self.roi_w = self.img_w
-
+    boxes, scores, class_ids = [], [], []
     out = outputs[0]
-    if classes is not None:
-      if isinstance(classes, int):
-        classes = [classes]
-      out = out[(out[:, 5:6] == np.array(classes)).any(1)]
+    if out.size == 0:
+      return [np.array([])], [np.array([])], [np.array([])]
+    batch_numbers = np.unique(out[:, 0]).astype(int)
+    for batch in batch_numbers:
+      roi_w, roi_h = (self.img_w[batch], self.img_h[batch]) if full else self.roi_ltwh[2:]
+      det = out[out[:, 0] == batch]
+      if classes is not None:
+        if isinstance(classes, int):
+          classes = [classes]
+        det = det[(det[:, 5:6] == np.array(classes)).any(1)]
 
-    scores = out[:, -1]
-    predictions = out[:, [0, 5, 1, 2, 3, 4]]
+      score = det[:, -1]
+      prediction = det[:, [0, 5, 1, 2, 3, 4]]
 
-    valid_scores = scores > self.conf
-    predictions = predictions[valid_scores, :]
-    scores = scores[valid_scores]
+      valid_score = score > self.conf
+      prediction = prediction[valid_score, :]
+      score = score[valid_score]
 
-    if scores.size == 0:
-      if self.verbose:
-        print(f"Postprocess time: {(time.perf_counter() - start)*1000:.2f} ms")
-      return np.array([]), np.array([]), np.array([])
+      if score.size == 0:
+        boxes.append(np.array([]))
+        scores.append(np.array([]))
+        class_ids.append(np.array([]))
+        continue
 
-    # batch_numbers = predictions[:, 0]
-    class_ids = predictions[:, 1].astype(int)
-    boxes = scale_coords((self.input_h, self.input_w), predictions[:, 2:], (self.roi_h, self.roi_w))
+      class_id = prediction[:, 1].astype(int)
+      box = scale_coords((self.input_h, self.input_w), prediction[:, 2:], (roi_h, roi_w))
 
-    if not full:
-      expand_boxes(boxes, (self.roi_l, self.roi_t))
+      if not full:
+        expand_boxes(box, (self.roi_ltwh[0], self.roi_ltwh[1]))
+
+      boxes.append(box)
+      scores.append(score)
+      class_ids.append(class_id)
 
     if self.verbose:
       print(f"Postprocess time: {(time.perf_counter() - start)*1000:.2f} ms")
@@ -144,77 +158,82 @@ class YoloInfer:
 
 
 if __name__ == "__main__":
-  from tracker import EuclideanDistTracker
+  import sys
 
-  from utils import bbox_iou, cv2_imshow, draw_detections_id
+  from utils.tracker import EuclideanDistTracker
+  from utils.utils import bbox_iou, cv2_imshow, draw_detections_id
 
   tracker = EuclideanDistTracker()
-  colors = [hex2bgr("23aaf2"), hex2bgr("f9394a"), hex2bgr("18b400")]
+  colors = [hex2bgr("23aaf2"), hex2bgr("f9394a"), hex2bgr("18b400"), hex2bgr("1ed860")]
   verbose = True
-  img = cv2.imread("media/test (1).png")
+  # img = cv2.imread("media/test (1).png")
+  img = cv2.imread("media/test4.png")
   img_h, img_w = img.shape[:2]
   path = "models/seatbelt-tiny.onnx"
   engine = YoloInfer(path, verbose=verbose, conf=0.35)
   # engine.roi = [(0, 1), (0, 1), (0, 1), (0, 1)]
-  # engine.roi = [(0.42, 0.52), (0.41, 0.58), (0.37, 0.86), (0.37, 0.86)]
-  engine.roi = [(0.33, 0.63), (0.17, 0.71), (0.3, 0.86), (0.3, 0.86)] # [top, bottom, left, right]
+  engine.roi = [(0.42, 0.52), (0.41, 0.58), (0.37, 0.86), (0.37, 0.86)]
+  # engine.roi = [(0.33, 0.63), (0.17, 0.71), (0.3, 0.86), (0.3, 0.86)] # [top, bottom, left, right]
 
-  res = engine.detect(img, classes=[0, 3], full=False)
+  st = time.perf_counter()
+  res = engine.detect([img], classes=[0, 3], full=False)
   boxes, scores, class_ids = res
+  if boxes[0].size == 0:
+    sys.exit(0)
 
-  if boxes.size > 0:
-    cars = boxes[class_ids==0]
-    windshields = boxes[class_ids==3]
-    if cars.size > 0:
-      cars_id = np.zeros((cars.shape[0], cars.shape[1]+3))
-      cars_id[:, :5] = tracker.update(cars)
+  cars = boxes[0][class_ids[0]==0]
+  if cars.size == 0:
+    sys.exit(0)
 
-      if windshields.size > 0:
-        windshields_id = -np.ones((windshields.shape[0], windshields.shape[1]+1))
-        windshields_id[:, :-1] = windshields
+  cars_id = np.zeros((cars.shape[0], cars.shape[1]+3))
+  cars_id[:, :5] = tracker.update(cars)
 
-        invalid = []
-        for idx, w in enumerate(windshields_id):
-          car_index = bbox_iou(np.expand_dims(w[:4], 0), cars[:, :4])
-          if car_index.sum()==0:
-            invalid.append(idx)
-            continue
-          w[-1] = cars_id[np.argmax(car_index), 4]
-        windshields_id = np.delete(windshields_id, invalid, 0)
+  windshields = boxes[0][class_ids[0]==3]
+  if windshields.size == 0:
+    sys.exit(0)
 
-        windshields_imgs = []
-        for wbox in windshields_id:
-          box = wbox.astype(int)
-          ws = img[box[1]:box[3], box[0]:box[2], :]
-          ps_res = engine.detect(ws, classes=[1, 2], full=True)
-          ps_boxes, ps_scores, ps_class_ids = ps_res
-          draw_detections(ws, *ps_res, class_names=engine.class_names)
-          windshields_imgs.append((int(wbox[-1]), ps_res, ws))
-          tmp = cars_id[cars_id[:, 4]==wbox[-1]]
-          tmp[0, 6] = ps_class_ids[ps_class_ids == 2].size
-          tmp[0, 5] = ps_class_ids[ps_class_ids == 1].size
-          cars_id[cars_id[:, 4] == wbox[-1]] = tmp
+  windshields_id = -np.ones((windshields.shape[0], windshields.shape[1]+1))
+  windshields_id[:, :-1] = windshields
 
-  print(boxes.shape)
+  invalid = []
+  for idx, w in enumerate(windshields_id):
+    car_index = bbox_iou(np.expand_dims(w[:4], 0), cars[:, :4])
+    if car_index.sum()==0:
+      invalid.append(idx)
+      continue
+    w[-1] = cars_id[np.argmax(car_index), 4]
+  windshields_id = np.delete(windshields_id, invalid, 0)
+
+  wboxes = [box for box in windshields_id.astype(int)]
+  ws_imgs = [img[box[1]:box[3], box[0]:box[2], :] for box in windshields_id.astype(int)]
+  ps_ress = engine.detect(ws_imgs, classes=[1, 2], full=True)
+  ps_boxes, ps_scores, ps_class_ids = ps_ress
+  for wbox, ws, ps_box, ps_score, ps_class_id in zip(wboxes, ws_imgs, ps_boxes, ps_scores, ps_class_ids):
+    draw_detections(ws, ps_box, ps_score, ps_class_id, class_names=engine.class_names)
+    tmp = cars_id[cars_id[:, 4]==wbox[-1]]
+    tmp[0, 6] = ps_class_id[ps_class_id == 2].size
+    tmp[0, 5] = ps_class_id[ps_class_id == 1].size
+    cars_id[cars_id[:, 4] == wbox[-1]] = tmp
+
+  print(boxes[0].shape)
   print(cars.shape)
   print(windshields.shape)
   print(cars_id.shape)
   print(windshields_id.shape)
 
-  for box in cars_id:
-    print(box.astype(int))
+  # for box in cars_id:
+  #   print(box.astype(int))
 
-  # print(res)
-  # res = engine(img)
-  # res = engine(img)
   start = time.perf_counter()
   draw_roi(img, engine.verts, 2, hex2bgr("#ffd96a"))
-  #render = draw_detections_id(img, *res)
-  render = draw_detections_id(img, cars_id[:, :5], scores[class_ids==0], class_ids[class_ids==0], colors=colors)
+  # render = draw_detections(img, boxes[0], scores[0], class_ids[0])
+  render = draw_detections_id(img, windshields_id[:, :5], scores[0][class_ids[0]==3], class_ids[0][class_ids[0]==3], colors=colors)
+  render = draw_detections_id(render, cars_id[:, :5], scores[0][class_ids[0]==0], class_ids[0][class_ids[0]==0], colors=colors)
   # render = draw_detections_id(render, windshields_id, scores[class_ids==3], class_ids[class_ids==3])
   if verbose:
     print(f"Rendering time: {(time.perf_counter() - start)*1000:.2f} ms")
-  cv2_imshow(cv2.resize(render, (img_w//2, img_h//2)))
+    print(f"Total processing time: {(time.perf_counter() - st)*1000:.2f} ms")
+  cv2_imshow(cv2.resize(render, (img_w//4, img_h//4)))
 
 # h_img, w_img = img.shape[:2]
 # verts = np.vstack((np.hstack([x.value for x in roi_xs])*w_img, np.hstack([y.value for y in roi_ys])*h_img)).T.astype(int)

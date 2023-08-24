@@ -50,11 +50,11 @@ class ResultTable(QTableWidget):
           "bbox": [box.tolist()],
           "n_passenger": [n_ps],
           "n_seatbelt": [n_sb],
-          "image": [f"{oid}/{self._img_id[oid]}.jpg"]
+          "image": [f"{oid}/{self._img_id[oid]}_{n_ps}_{n_sb}.jpg"]
         }
         if self.save:
           oid_dir.mkdir(exist_ok=True)
-          with (oid_dir / f"{self._img_id[oid]}.jpg").open("wb") as f:
+          with (oid_dir / f"{self._img_id[oid]}_{n_ps}_{n_sb}.jpg").open("wb") as f:
             f.write(rgb8_to_jpeg(img, 100))
         continue
 
@@ -79,14 +79,15 @@ class ResultTable(QTableWidget):
         self._data[oid]["n_seatbelt"] = [n_sb]
 
       self._img_id[oid] += 1
+      img_filename = f"{self._img_id[oid]}_{n_ps}_{n_sb}.jpg"
       if "image" in self._data[oid].keys():
-        self._data[oid]["image"] += [f"{oid}/{self._img_id[oid]}.jpg"]
+        self._data[oid]["image"] += [f"{oid}/{img_filename}"]
       else:
-        self._data[oid]["image"] = [f"{oid}/{self._img_id[oid]}.jpg"]
+        self._data[oid]["image"] = [f"{oid}/{img_filename}"]
 
       if self.save:
         oid_dir.mkdir(exist_ok=True)
-        with (oid_dir / f"{self._img_id[oid]}.jpg").open("wb") as f:
+        with (oid_dir / img_filename).open("wb") as f:
           f.write(rgb8_to_jpeg(img, 100))
 
     if self.save:
